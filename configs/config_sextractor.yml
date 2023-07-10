@@ -1,0 +1,4 @@
+"""
+store the default parameters that are used for the SExtractor run
+    (used for, e.g., checking the number of objects in a frame, typical FWHM, ...)
+"""
