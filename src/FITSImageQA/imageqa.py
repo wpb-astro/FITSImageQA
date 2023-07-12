@@ -22,10 +22,7 @@ except ImportError:
 
 
 
-# proper way to load sextractor config
-# from config_sextractor import ipy
-
-all = []
+__all__ = ["QAHeader", "QAData"]
 
 class Thing:
     def __init__(self) -> None:
@@ -70,7 +67,7 @@ class QAHeader(Thing):
             hdr = fits.getheader(filename_or_hdr)
         elif isinstance(filename_or_hdr, fits.hdu.hdulist.HDUList):
             hdr = filename_or_hdr[0].header
-        elif isinstance(filename_or_hdr, fits.header.Header)
+        elif isinstance(filename_or_hdr, fits.header.Header):
             hdr = filename_or_hdr
         else:
             raise TypeError("filename_or_hdr is not the correct type.")
@@ -195,7 +192,7 @@ class QAData(Thing):
             data = fits.getdata(filename_or_data)
         elif isinstance(filename_or_data, fits.hdu.hdulist.HDUList):
             data = filename_or_data[0].data
-        elif isinstance(filename_or_data, np.ndarray)
+        elif isinstance(filename_or_data, np.ndarray):
             data = filename_or_data
         else:
             raise TypeError("filename_or_data is not the correct type.")
@@ -288,7 +285,7 @@ class QAData(Thing):
         #while zp is None:
         #    try:
         #        zp = # read the value from the header
-        detection_config['zp'] = zp
+        detection_config['zpt'] = zp
 
         # run the source detection and store the result
         self.sources = detection.extract_sources(path_or_pixels=self.data, logger=self.logger, **self.detection_config)
