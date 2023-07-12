@@ -30,23 +30,34 @@ all = []
 class Thing:
     def __init__(self) -> None:
         """
-        # initialize the header object
-        # initialize the data object
+
+        TODO:
+            # initialize the header object
+            # initialize the data object
         """
         self.logger = logging.getLogger(__name__)
         # optional logger stuff: setLevel, setFormatter, handlers(?)
 
     def is_corrupt_or_empty(self):
-        """check whether the FITS file is corrupt or empty
+        """
+        check whether the FITS file is corrupt or empty
+
+        TODO: fill in
         """
         pass
 
 class QAHeader(Thing):
     def __init__(self, filename_or_hdr, expected_fields=None, expected_fields_dtype=None) -> None:
         """
-        hdr : can be a filename, or an hdu (result of fits.open), or fitsheader object (hdu[0].header)
-        expected_fields : iterable of str
-        expected_fields_dtype : iter of key-value pairs
+
+        Parameters
+        ----------
+        filename_or_hdr : str | astropy.io.fits.hdu.hdulist.HDUList | astropy.io.fits.header.Header
+            used for creating the main header object
+            can be a filename, or an hdu (result of fits.open), or fitsheader object (hdu[0].header)
+        expected_fields : iterable of str (optional)
+            list of fields that must appear in the image header
+        expected_fields_dtype : iter of key-value pairs (optional)
             keys = header names (str)
             values = data types        
         """
@@ -56,8 +67,10 @@ class QAHeader(Thing):
             hdr = fits.getheader(filename_or_hdr)
         elif isinstance(filename_or_hdr, fits.hdu.hdulist.HDUList):
             hdr = filename_or_hdr[0].header
-        else:
+        elif isinstance(filename_or_hdr, fits.header.Header)
             hdr = filename_or_hdr
+        else:
+            raise TypeError("filename_or_hdr is not the correct type.")
         self.hdr = hdr
         self.header_fields = set(self.hdr.keys())
         try:
@@ -68,7 +81,7 @@ class QAHeader(Thing):
 
     def fetch_header_info(self, column_name):
         """ 
-        get info from the header
+        Get info from the header
 
         Parameters
         ----------
@@ -97,17 +110,21 @@ class QAHeader(Thing):
         #    self.logger.error("Field not found in the header.")
 
     def check_header_fields_present(self, expected_fields=None, 
-                                    return_missing_fields=False):
+                                    return_missing_fields=False,
+                                    overwrite_attribute=False):
         """
-        parameters
+
+        Parameters
         ----------
         expected_fields : iterable of str (optional)
             if passed, use instead of self.expected_fields 
         return_missing_fields : bool (default=False)
             if True, return fields from `expected_fields` that 
             are not present in image header
+        overwrite_attribute : bool (default=False)
+            reset the `expected_fields` attribute with the locally-passed list
         
-        returns
+        Returns
         -------
         valid : bool
             are the desired fields present in the header?
@@ -116,8 +133,11 @@ class QAHeader(Thing):
         """
         if expected_fields is not None:
             expected_fields = set(expected_fields)
+            if overwrite_attribute:
+                self.expected_fields = expected_fields
         else:
             expected_fields = self.expected_fields
+        
         # check whether all desired fields are present
         valid = self.header_fields.issuperset( expected_fields )
         if not return_missing_fields:
@@ -130,7 +150,7 @@ class QAHeader(Thing):
                                   return_incorrect_fields=False,
                                   suppress_unknown=False, verbose=False):
         """
-        check that data type of header fields are as expected
+        Check that data type of header fields are as expected
         
         Parameters
         ----------
@@ -155,9 +175,11 @@ class QAHeader(Thing):
 class QAData(Thing):
     def __init__(self, filename_or_data, detection_config=None) -> None:
         """
+
         Parameters
         ----------
         filename_or_data : str | HDUList | np.ndarray
+            used for creating the main data object
             can be a filename, or an hdu (result of fits.open), or fitsheader object (hdu[0].header)
         detection_config : dict (optional)
             dictionary of parameters to use in `detection.extract_sources`
@@ -193,7 +215,7 @@ class QAData(Thing):
             
         Notes
         -----
-        source detection will be run via self.detect_sources
+        Source detection will be run via self.detect_sources
             if no result already exists (stored in self.sources)
         """
         try:
