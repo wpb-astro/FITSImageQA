@@ -1,5 +1,10 @@
 from setuptools import setup, find_packages
 
+### REMOVE THE FOLLOWING, if confirm we do not actually need it
+# append to path, to iteratively find packages (TODO: make this nicer)
+#import sys
+#sys.path.append('src')
+
 long_description = open("README.md").read()
 
 setup(
@@ -12,10 +17,11 @@ setup(
     #author = 
     #author_email = 
     url = "https://github.com/wpb-astro/FITSImageQA",
-    include_package_data = True, # looks in MANIFEST.in
-    packages = find_packages(where="src"),
+    #include_package_data = True, # looks in MANIFEST.in
+    #packages = ["src/FITSImageQA", "src/FITSImageQA/detection"], #find_packages(where="src/FITSImageQA"),
+    packages = find_packages(where="src"),  #/FITSImageQA") 
     #package_data = 
-    #package_dir = 
+    package_dir = {"": "src"},
     #install_requires = 
     classifiers = [
         "Programming Language :: Python :: 3",
