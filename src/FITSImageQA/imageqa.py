@@ -15,12 +15,17 @@ import sep
 
 # package imports
 # TODO: not sure how these should be organized...
-from . import detection
+try:
+    from . import detection
+except ImportError:
+    logging.critical('Unable to import detection submodule!')
 
 
 
 # proper way to load sextractor config
 # from config_sextractor import ipy
+
+all = []
 
 class Thing:
     def __init__(self) -> None:
@@ -229,9 +234,9 @@ class QAData(Thing):
             _ = self.sources 
             if not overwrite:
                 raise Exception("Aborting: self.sources already exists. Must set overwrite=True to proceed.")
-            logger.info("Overwriting self.sources with new result.")
+            self.logger.info("Overwriting self.sources with new result.")
         except AttributeError:
-            logger.info("Sources have not yet been extracted. The new result will be stored in self.sources")
+            self.logger.info("Sources have not yet been extracted. The new result will be stored in self.sources")
         
         # collect the locally-passed source detection parameters
         if detection_config is None:
