@@ -35,6 +35,14 @@ def _byteswap(arr):
     """
     If array is in big-endian byte order (as astropy.io.fits
     always returns), swap to little-endian for SEP.
+
+    Parameters
+    ----------
+    arr : np.ndarray
+
+    Returns
+    -------
+    np.ndarray
     """
     if arr is not None and arr.dtype.byteorder=='>':
         arr = arr.byteswap().newbyteorder()

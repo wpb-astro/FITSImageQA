@@ -1,6 +1,8 @@
 # FITSImageQA
 Perform quality checks on FITS images
 
+# Install package in editable mode
+pip install -e .
 
 # REORGANIZE ALL OF FOLLOWING INTO SENSIBLE TEXT - just dumping info for now
 

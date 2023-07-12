@@ -9,9 +9,9 @@ date XYZ
 from __future__ import annotations
 
 # imports:
+import numpy as np
 from astropy.io import fits
 import logging
-import sep
 
 # package imports
 # TODO: not sure how these should be organized...
@@ -30,23 +30,37 @@ all = []
 class Thing:
     def __init__(self) -> None:
         """
-        # initialize the header object
-        # initialize the data object
+
+        TODO:
+            # initialize the header object
+            # initialize the data object
         """
         self.logger = logging.getLogger(__name__)
         # optional logger stuff: setLevel, setFormatter, handlers(?)
 
     def is_corrupt_or_empty(self):
-        """check whether the FITS file is corrupt or empty
+        """
+        check whether the FITS file is corrupt or empty
+
+        TODO: fill in
         """
         pass
 
 class QAHeader(Thing):
-    def __init__(self, filename_or_hdr, expected_fields=None, expected_fields_dtype=None) -> None:
+    def __init__(self, filename_or_hdr: str | fits.hdu.hdulist.HDUList | fits.header.Header, 
+                 expected_fields: list[str] = None, 
+                 expected_fields_dtype: dict = None
+                ) -> None:
         """
-        hdr : can be a filename, or an hdu (result of fits.open), or fitsheader object (hdu[0].header)
-        expected_fields : iterable of str
-        expected_fields_dtype : iter of key-value pairs
+
+        Parameters
+        ----------
+        filename_or_hdr : str | astropy.io.fits.hdu.hdulist.HDUList | astropy.io.fits.header.Header
+            used for creating the main header object
+            can be a filename, or an hdu (result of fits.open), or fitsheader object (hdu[0].header)
+        expected_fields : iterable of str (optional)
+            list of fields that must appear in the image header
+        expected_fields_dtype : dict of key-value pairs (optional)
             keys = header names (str)
             values = data types        
         """
@@ -56,8 +70,10 @@ class QAHeader(Thing):
             hdr = fits.getheader(filename_or_hdr)
         elif isinstance(filename_or_hdr, fits.hdu.hdulist.HDUList):
             hdr = filename_or_hdr[0].header
-        else:
+        elif isinstance(filename_or_hdr, fits.header.Header)
             hdr = filename_or_hdr
+        else:
+            raise TypeError("filename_or_hdr is not the correct type.")
         self.hdr = hdr
         self.header_fields = set(self.hdr.keys())
         try:
@@ -66,9 +82,9 @@ class QAHeader(Thing):
             self.expected_fields = expected_fields
         self.expected_fields_dtype = expected_fields_dtype
 
-    def fetch_header_info(self, column_name):
+    def fetch_header_info(self, column_name: str):
         """ 
-        get info from the header
+        Get info from the header
 
         Parameters
         ----------
@@ -96,18 +112,22 @@ class QAHeader(Thing):
         #except KeyError:
         #    self.logger.error("Field not found in the header.")
 
-    def check_header_fields_present(self, expected_fields=None, 
-                                    return_missing_fields=False):
+    def check_header_fields_present(self, expected_fields: list[str] = None, 
+                                    return_missing_fields: bool = False,
+                                    overwrite_attribute: bool = False):
         """
-        parameters
+
+        Parameters
         ----------
         expected_fields : iterable of str (optional)
             if passed, use instead of self.expected_fields 
         return_missing_fields : bool (default=False)
             if True, return fields from `expected_fields` that 
             are not present in image header
+        overwrite_attribute : bool (default=False)
+            reset the `expected_fields` attribute with the locally-passed list
         
-        returns
+        Returns
         -------
         valid : bool
             are the desired fields present in the header?
@@ -116,8 +136,11 @@ class QAHeader(Thing):
         """
         if expected_fields is not None:
             expected_fields = set(expected_fields)
+            if overwrite_attribute:
+                self.expected_fields = expected_fields
         else:
             expected_fields = self.expected_fields
+        
         # check whether all desired fields are present
         valid = self.header_fields.issuperset( expected_fields )
         if not return_missing_fields:
@@ -126,11 +149,11 @@ class QAHeader(Thing):
             missing_fields = expected_fields.difference( self.header_fields )
             return valid, missing_fields
     
-    def check_header_fields_dtype(self, expected_fields_dtype=None,
-                                  return_incorrect_fields=False,
-                                  suppress_unknown=False, verbose=False):
+    def check_header_fields_dtype(self, expected_fields_dtype: dict = None,
+                                  return_incorrect_fields: bool = False,
+                                  suppress_unknown: bool = False, verbose: bool = False):
         """
-        check that data type of header fields are as expected
+        Check that data type of header fields are as expected
         
         Parameters
         ----------
@@ -153,11 +176,15 @@ class QAHeader(Thing):
         pass
 
 class QAData(Thing):
-    def __init__(self, filename_or_data, detection_config=None) -> None:
+    def __init__(self, filename_or_data: str | fits.hdu.hdulist.HDUList | np.ndarray, 
+                 detection_config: dict = None
+                ) -> None:
         """
+
         Parameters
         ----------
         filename_or_data : str | HDUList | np.ndarray
+            used for creating the main data object
             can be a filename, or an hdu (result of fits.open), or fitsheader object (hdu[0].header)
         detection_config : dict (optional)
             dictionary of parameters to use in `detection.extract_sources`
@@ -168,12 +195,14 @@ class QAData(Thing):
             data = fits.getdata(filename_or_data)
         elif isinstance(filename_or_data, fits.hdu.hdulist.HDUList):
             data = filename_or_data[0].data
-        else:
+        elif isinstance(filename_or_data, np.ndarray)
             data = filename_or_data
+        else:
+            raise TypeError("filename_or_data is not the correct type.")
         self.data = data
         self.detection_config = detection_config
 
-    def is_focus_good(self, max_focus_fwhm=2.5): #or, rename as check_focus
+    def is_focus_good(self, max_focus_fwhm: float | int = 2.5): 
         """
         Determine whether a focus run is needed while observing,
         by comparing the FWHM of sources that are detected in the image
@@ -193,7 +222,7 @@ class QAData(Thing):
             
         Notes
         -----
-        source detection will be run via self.detect_sources
+        Source detection will be run via self.detect_sources
             if no result already exists (stored in self.sources)
         """
         try:
@@ -206,7 +235,8 @@ class QAData(Thing):
         in_focus = med_fwhm <= max_focus_fwhm
         return in_focus, med_fwhm
 
-    def detect_sources(self, detection_config=None, overwrite=True, **kwargs):
+    def detect_sources(self, detection_config: dict = None, 
+                       overwrite: bool = True, **kwargs):
         """ 
         Detect sources in the image and store the result as an attribute
 
