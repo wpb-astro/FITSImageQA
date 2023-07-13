@@ -79,7 +79,7 @@ class QAHeader(Thing):
             self.expected_fields = expected_fields
         self.expected_fields_dtype = expected_fields_dtype
 
-    def fetch_header_info(self, column_name: str):
+    def fetch_header_info(self, column_name: str ):
         """ 
         Get info from the header
 
@@ -93,21 +93,12 @@ class QAHeader(Thing):
         info : 
             return the value from the header, corresponding to the key `column_name`
         """
-        # TODO: if the underlying exception that gets raised by astropy.io.fits is sufficient,
-        #       just use that
-        #       KEY QUESTION: is that exception stored to the log? if not, must do proper logging
-
-        ### Choose scenario 1 vs 2, and uncomment/delete the appropriate one
-        ### SCENARIO 1: just use the underlying exception that is raised
-        info = self.hdr[column_name]
-        return info
-
-        ### SCENARIO 2: write our own handling, with logging
-        #try:
-        #    info = self.hdr[column_name]
-        #    return info
-        #except KeyError:
-        #    self.logger.error("Field not found in the header.")
+        try:
+            info = self.hdr[column_name]
+            return info
+        except KeyError as e:
+            self.logger.error("Available header fields: %s", list(self.hdr.keys()))
+            raise e
 
     def check_header_fields_present(self, expected_fields: list[str] = None, 
                                     return_missing_fields: bool = False,
