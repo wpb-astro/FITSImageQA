@@ -201,6 +201,8 @@ class QAHeader(Thing):
         # loop through the fields that are requesting to be checked:
         for k,v in expected_fields_dtype.items():
             if k not in self.header_fields:
+                if verbose:
+                    self.logger.info(f"Field {k} is not in the header.")
                 continue
             hdr_value = self.fetch_header_info(k) #, suppress_error=True)
             try:
@@ -208,7 +210,6 @@ class QAHeader(Thing):
             except TypeError:
                 v = [v]
             # iterate through possible acceptable types:
-            passed = False
             for vi in v:
                 if vi == float: # more general float check
                     passed = np.issubdtype( type(hdr_value) , np.floating )
@@ -220,23 +221,22 @@ class QAHeader(Thing):
                     break
             if not passed:
                 if exit_on_fail:
-                    # Weird issue where the type(hdr_value) does not appear in the TypeError -- hack, explicitly log message 
+                    # Weird issue where the type(hdr_value) does not appear in the TypeError
+                    #   --> Hack: explicitly log the message 
                     msg = "Field {k} = {val} has incorrect dtype ({dt})".format(k=k, val=hdr_value, dt=type(hdr_value))
                     self.logger.error(msg) 
                     raise TypeError(msg) 
                 else:
                     failed_fields[k] = [hdr_value, type(hdr_value)]
 
-        if exit_on_fail:    
-            return True
+        if exit_on_fail: 
+            return passed 
         else:
             passed = len(failed_fields) == 0
             if return_incorrect_fields:
                 return passed, failed_fields
             else:
                 return passed 
-
-
 
 class QAData(Thing):
     def __init__(self, filename_or_data: str | fits.hdu.hdulist.HDUList | np.ndarray, 
@@ -346,7 +346,7 @@ class QAData(Thing):
         # TODO: NOT YET IMPLEMENTED: Attempt to parse the zeropoint from the header (used for calculating magnitudes.)
         #       loop through a list of possible zeropoint keywords 
         # list of possible zeropoint keywords in the header
-        zp_keyword_list = ['ZP', 'ZPMAG'] 
+        zp_keyword_list = ['ZP', 'ZPMAG', 'ZEROPNT'] 
         zp = None
         #while zp is None:
         #    try:
@@ -355,4 +355,30 @@ class QAData(Thing):
 
         # run the source detection and store the result
         self.sources = detection.extract_sources(path_or_pixels=self.data, logger=self.logger, **self.detection_config)
+    
+    def display_image(self, add_detections: bool = False, **kwargs):
+        """ 
+        Display the image
+
+        Parameters
+        ----------
+        add_detections : (bool)
+            overplot sources detected via the `detect_sources` method
+        kwargs (optional)
+            passed to <INSERT_PLOTTING_FUNCTION>
+
+        Returns
+        -------
+        fig : <INSERT_PLOTTING_FUNCTION> 
+
+        """
+        if add_detections:
+            try:
+                _ = self.sources 
+            except AttributeError:
+                self.logger.warning("Sources have not yet been extracted. " +\
+                                    "Automatically calling `detect_sources` with default parameters, prior to plotting.")
+                self.detect_sources()
+
+        raise NotImplementedError("No image plotting functionality has been added yet")
     
