@@ -22,7 +22,10 @@ except ImportError:
 
 
 
-__all__ = ["QAHeader", "QAData"]
+# proper way to load sextractor config
+# from config_sextractor import ipy
+
+all = []
 
 class Thing:
     def __init__(self) -> None:
@@ -67,7 +70,7 @@ class QAHeader(Thing):
             hdr = fits.getheader(filename_or_hdr)
         elif isinstance(filename_or_hdr, fits.hdu.hdulist.HDUList):
             hdr = filename_or_hdr[0].header
-        elif isinstance(filename_or_hdr, fits.header.Header):
+        elif isinstance(filename_or_hdr, fits.header.Header)
             hdr = filename_or_hdr
         else:
             raise TypeError("filename_or_hdr is not the correct type.")
@@ -79,7 +82,7 @@ class QAHeader(Thing):
             self.expected_fields = expected_fields
         self.expected_fields_dtype = expected_fields_dtype
 
-    def fetch_header_info(self, column_name: str ):
+    def fetch_header_info(self, column_name: str):
         """ 
         Get info from the header
 
@@ -93,12 +96,21 @@ class QAHeader(Thing):
         info : 
             return the value from the header, corresponding to the key `column_name`
         """
-        try:
-            info = self.hdr[column_name]
-            return info
-        except KeyError as e:
-            self.logger.error("Available header fields: %s", list(self.hdr.keys()))
-            raise e
+        # TODO: if the underlying exception that gets raised by astropy.io.fits is sufficient,
+        #       just use that
+        #       KEY QUESTION: is that exception stored to the log? if not, must do proper logging
+
+        ### Choose scenario 1 vs 2, and uncomment/delete the appropriate one
+        ### SCENARIO 1: just use the underlying exception that is raised
+        info = self.hdr[column_name]
+        return info
+
+        ### SCENARIO 2: write our own handling, with logging
+        #try:
+        #    info = self.hdr[column_name]
+        #    return info
+        #except KeyError:
+        #    self.logger.error("Field not found in the header.")
 
     def check_header_fields_present(self, expected_fields: list[str] = None, 
                                     return_missing_fields: bool = False,
@@ -183,7 +195,7 @@ class QAData(Thing):
             data = fits.getdata(filename_or_data)
         elif isinstance(filename_or_data, fits.hdu.hdulist.HDUList):
             data = filename_or_data[0].data
-        elif isinstance(filename_or_data, np.ndarray):
+        elif isinstance(filename_or_data, np.ndarray)
             data = filename_or_data
         else:
             raise TypeError("filename_or_data is not the correct type.")
@@ -276,7 +288,7 @@ class QAData(Thing):
         #while zp is None:
         #    try:
         #        zp = # read the value from the header
-        detection_config['zpt'] = zp
+        detection_config['zp'] = zp
 
         # run the source detection and store the result
         self.sources = detection.extract_sources(path_or_pixels=self.data, logger=self.logger, **self.detection_config)
