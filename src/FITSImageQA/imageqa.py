@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from astropy.io import fits
 import logging
+import matplotlib.pyplot as plt
 
 # package imports
 # TODO: not sure how these should be organized...
@@ -378,10 +379,15 @@ class QAData(Thing):
         if add_detections:
             try:
                 _ = self.sources 
+                raise NotImplementedError("Overplotting source detection functionality has been added yet") 
             except AttributeError:
                 self.logger.warning("Sources have not yet been extracted. " +\
                                     "Automatically calling `detect_sources` with default parameters, prior to plotting.")
                 self.detect_sources()
 
-        raise NotImplementedError("No image plotting functionality has been added yet")
+        fig = plt.figure()
+        plt.imshow(self.data, **kwargs)
+            
+        return fig
+
     
