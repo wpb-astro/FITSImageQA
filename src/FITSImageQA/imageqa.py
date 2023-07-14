@@ -36,6 +36,7 @@ class Thing:
             # initialize the data object
         """
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
         # optional logger stuff: setLevel, setFormatter, handlers(?)
 
     def is_corrupt_or_empty(self):
@@ -82,7 +83,7 @@ class QAHeader(Thing):
             self.expected_fields = expected_fields
         self.expected_fields_dtype = expected_fields_dtype
 
-    def fetch_header_info(self, column_name: str):
+    def fetch_header_info(self, column_name: str, suppress_error: bool = False):
         """ 
         Get info from the header
 
@@ -90,27 +91,21 @@ class QAHeader(Thing):
         ----------
         column_name : str
             should be an element of list(self.hdr.keys())
+        suppress_error : bool
+            fail silently, if the value is not found
         
         Returns
         -------
         info : 
             return the value from the header, corresponding to the key `column_name`
         """
-        # TODO: if the underlying exception that gets raised by astropy.io.fits is sufficient,
-        #       just use that
-        #       KEY QUESTION: is that exception stored to the log? if not, must do proper logging
-
-        ### Choose scenario 1 vs 2, and uncomment/delete the appropriate one
-        ### SCENARIO 1: just use the underlying exception that is raised
-        info = self.hdr[column_name]
-        return info
-
-        ### SCENARIO 2: write our own handling, with logging
-        #try:
-        #    info = self.hdr[column_name]
-        #    return info
-        #except KeyError:
-        #    self.logger.error("Field not found in the header.")
+        try:
+            info = self.hdr[column_name]
+            return info
+        except KeyError as e:
+            if not suppress_error:
+                self.logger.error("Available header fields: %s", self.header_fields)
+                raise e
 
     def check_header_fields_present(self, expected_fields: list[str] = None, 
                                     return_missing_fields: bool = False,
@@ -151,7 +146,10 @@ class QAHeader(Thing):
     
     def check_header_fields_dtype(self, expected_fields_dtype: dict = None,
                                   return_incorrect_fields: bool = False,
-                                  suppress_unknown: bool = False, verbose: bool = False):
+                                  exit_on_fail: bool = True,
+                                  suppress_unknown: bool = True, 
+                                  overwrite_attribute: bool = False,
+                                  verbose: bool = False):
         """
         Check that data type of header fields are as expected
         
@@ -159,21 +157,89 @@ class QAHeader(Thing):
         ----------
         expected_fields_dtype : iter of key-value pairs
             keys = header names (str)
-            values = data types
+            values = data types (result of `type()` or iter of result of `type()`)
         return_incorrect_fields : bool
             which fields are of the wrong data type (empty, if valid=True)
+        exit_on_fail : bool
+            raise TypeError at first instance of failure
         suppress_unknown : bool
             if True, do not break if header datatype cannot be checked 
             (not in reference list)
+        overwrite_attribute : bool (default=False)
+            reset the `expected_fields_dtype` attribute with the locally-passed list
         verbose : bool
             print warnings if fields cannot be checked, or if fields are wrong data type
         
         Returns
         -------
-        valid : bool
+        passed : bool
             are the header fields of the expected data type?
+        incorrect_fields : dict (optional)
+            keys : str, column names that did not pass the dtype check
+            values : list of str [header_value, type(header_value)]
+
+        Notes
+        -----
+        self.header_fields and keys(expected_fields_dtype) can be overlapping or subsets of one another
         """
-        pass
+        # Force behavior
+        if return_incorrect_fields == exit_on_fail == True:
+            raise Exception("Cannot set both `return_incorrect_fields` and `exit_on_fail` to be True")
+        
+        # Identify the set of fields to be checked, and optionally store it as an attribute
+        if expected_fields_dtype is not None:
+            if overwrite_attribute:
+                self.expected_fields_dtype = expected_fields_dtype
+        else:
+            expected_fields_dtype = self.expected_fields_dtype
+
+        if not isinstance(expected_fields_dtype, dict):
+            raise TypeError("`expected_fields_dtype` should be a dictionary.") 
+
+        # raise warning if no values can be checked:
+        if not len( set(expected_fields_dtype.keys()).intersection( set(self.header_fields)) ):
+            self.logger.warning("No overlap between header keys and fields that are requested to be checked.")
+
+        failed_fields = dict()
+        # loop through the fields that are requesting to be checked:
+        for k,v in expected_fields_dtype.items():
+            if k not in self.header_fields:
+                if verbose:
+                    self.logger.info(f"Field {k} is not in the header.")
+                continue
+            hdr_value = self.fetch_header_info(k) #, suppress_error=True)
+            try:
+                len(v)
+            except TypeError:
+                v = [v]
+            # iterate through possible acceptable types:
+            for vi in v:
+                if vi == float: # more general float check
+                    passed = np.issubdtype( type(hdr_value) , np.floating )
+                elif vi == int: # more general int check
+                    passed = np.issubdtype( type(hdr_value) , np.integer )
+                else:
+                    passed = isinstance( hdr_value, vi)
+                if passed:
+                    break
+            if not passed:
+                if exit_on_fail:
+                    # Weird issue where the type(hdr_value) does not appear in the TypeError
+                    #   --> Hack: explicitly log the message 
+                    msg = "Field {k} = {val} has incorrect dtype ({dt})".format(k=k, val=hdr_value, dt=type(hdr_value))
+                    self.logger.error(msg) 
+                    raise TypeError(msg) 
+                else:
+                    failed_fields[k] = [hdr_value, type(hdr_value)]
+
+        if exit_on_fail: 
+            return passed 
+        else:
+            passed = len(failed_fields) == 0
+            if return_incorrect_fields:
+                return passed, failed_fields
+            else:
+                return passed 
 
 class QAData(Thing):
     def __init__(self, filename_or_data: str | fits.hdu.hdulist.HDUList | np.ndarray, 
@@ -283,7 +349,7 @@ class QAData(Thing):
         # TODO: NOT YET IMPLEMENTED: Attempt to parse the zeropoint from the header (used for calculating magnitudes.)
         #       loop through a list of possible zeropoint keywords 
         # list of possible zeropoint keywords in the header
-        zp_keyword_list = ['ZP', 'ZPMAG'] 
+        zp_keyword_list = ['ZP', 'ZPMAG', 'ZEROPNT'] 
         zp = None
         #while zp is None:
         #    try:
@@ -292,4 +358,30 @@ class QAData(Thing):
 
         # run the source detection and store the result
         self.sources = detection.extract_sources(path_or_pixels=self.data, logger=self.logger, **self.detection_config)
+    
+    def display_image(self, add_detections: bool = False, **kwargs):
+        """ 
+        Display the image
+
+        Parameters
+        ----------
+        add_detections : (bool)
+            overplot sources detected via the `detect_sources` method
+        kwargs (optional)
+            passed to <INSERT_PLOTTING_FUNCTION>
+
+        Returns
+        -------
+        fig : <INSERT_PLOTTING_FUNCTION> 
+
+        """
+        if add_detections:
+            try:
+                _ = self.sources 
+            except AttributeError:
+                self.logger.warning("Sources have not yet been extracted. " +\
+                                    "Automatically calling `detect_sources` with default parameters, prior to plotting.")
+                self.detect_sources()
+
+        raise NotImplementedError("No image plotting functionality has been added yet")
     
