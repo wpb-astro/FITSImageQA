@@ -28,8 +28,8 @@ except ImportError:
 
 all = []
 
-class Thing:
-    def __init__(self) -> None:
+class ImageQA:
+    def __init__(self, filename=None) -> None:
         """
 
         TODO:
@@ -40,15 +40,30 @@ class Thing:
         self.logger.setLevel(logging.DEBUG)
         # optional logger stuff: setLevel, setFormatter, handlers(?)
 
-    def is_corrupt_or_empty(self):
+        if filename is not None:
+            self.fn = filename
+            self.check_is_corrupt()
+            if not self.is_corrupt:
+                self.data = QAData(filename_or_data=self.fn)
+                self.hdr = QAHeader(filename_or_hdr=self.fn)
+            else:
+                self.data = None
+                self.hdr = None
+                raise Exception(f"FITS file {self.fn} is corrupt.")
+
+    def check_is_corrupt(self):
         """
-        check whether the FITS file is corrupt or empty
+        check whether the FITS file is corrupt
 
         TODO: fill in
         """
-        pass
+        try:
+            _ = fits.open(self.fn)
+            self.is_corrupt = False
+        except:
+            self.is_corrupt = True
 
-class QAHeader(Thing):
+class QAHeader(ImageQA):
     def __init__(self, filename_or_hdr: str | fits.hdu.hdulist.HDUList | fits.header.Header, 
                  expected_fields: list[str] = None, 
                  expected_fields_dtype: dict = None
@@ -242,7 +257,7 @@ class QAHeader(Thing):
             else:
                 return passed 
 
-class QAData(Thing):
+class QAData(ImageQA):
     def __init__(self, filename_or_data: str | fits.hdu.hdulist.HDUList | np.ndarray, 
                  detection_config: dict = None
                 ) -> None:
@@ -355,7 +370,7 @@ class QAData(Thing):
         #while zp is None:
         #    try:
         #        zp = # read the value from the header
-        detection_config['zp'] = zp
+        detection_config['zpt'] = zp
 
         # run the source detection and store the result
         self.sources = detection.extract_sources(path_or_pixels=self.data, logger=self.logger, **self.detection_config)
