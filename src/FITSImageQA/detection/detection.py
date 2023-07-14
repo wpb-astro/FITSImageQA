@@ -23,11 +23,7 @@ default_flux_ann = [(3, 6), (5, 8)]
 
 
 __all__ = [
-    'extract_sources',
-    'generate_flux_model',
-    'generate_lsb_source_mask',
-    'get_source_segments', 
-    'remove_segments_from_segmap',
+    'extract_sources'
 ]
 
 
@@ -148,7 +144,8 @@ def extract_sources(
     # Build background map using sep.
     mask = _byteswap(mask)
     data = _byteswap(pixels)
-    bkg = sep.Background(pixels, bw=bw, bh=bh, fw=fw, fh=fh, mask=mask, **kwargs)
+    #bkg = sep.Background(pixels, bw=bw, bh=bh, fw=fw, fh=fh, mask=mask, **kwargs)
+    bkg = sep.Background(data, bw=bw, bh=bh, fw=fw, fh=fh, mask=mask, **kwargs)
 
     # If desired, subtract background. 
     if subtract_sky:
