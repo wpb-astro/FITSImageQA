@@ -261,7 +261,7 @@ class QAData(Thing):
             data = fits.getdata(filename_or_data)
         elif isinstance(filename_or_data, fits.hdu.hdulist.HDUList):
             data = filename_or_data[0].data
-        elif isinstance(filename_or_data, np.ndarray)
+        elif isinstance(filename_or_data, np.ndarray):
             data = filename_or_data
         else:
             raise TypeError("filename_or_data is not the correct type.")
