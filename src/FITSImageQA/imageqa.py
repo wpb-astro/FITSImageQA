@@ -71,7 +71,7 @@ class QAHeader(Thing):
             hdr = fits.getheader(filename_or_hdr)
         elif isinstance(filename_or_hdr, fits.hdu.hdulist.HDUList):
             hdr = filename_or_hdr[0].header
-        elif isinstance(filename_or_hdr, fits.header.Header)
+        elif isinstance(filename_or_hdr, fits.header.Header):
             hdr = filename_or_hdr
         else:
             raise TypeError("filename_or_hdr is not the correct type.")
