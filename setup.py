@@ -12,7 +12,7 @@ setup(
     description = "Perform quality checks on FITS images",
     long_description = long_description, 
     long_description_content_type = "text/markdown",
-    version = "0.0.1",  # TODO: how to reconcile version set here vs in the `__init__.py` file
+    version = "0.0.2",  # TODO: how to reconcile version set here vs in the `__init__.py` file
     license = "MIT",  # TODO: confirm correct 
     #author = 
     #author_email = 
