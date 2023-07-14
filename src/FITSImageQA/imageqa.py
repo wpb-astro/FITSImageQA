@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from astropy.io import fits
 import logging
+import matplotlib.pyplot as plt
 
 # package imports
 # TODO: not sure how these should be organized...
@@ -261,7 +262,7 @@ class QAData(Thing):
             data = fits.getdata(filename_or_data)
         elif isinstance(filename_or_data, fits.hdu.hdulist.HDUList):
             data = filename_or_data[0].data
-        elif isinstance(filename_or_data, np.ndarray)
+        elif isinstance(filename_or_data, np.ndarray):
             data = filename_or_data
         else:
             raise TypeError("filename_or_data is not the correct type.")
@@ -378,10 +379,15 @@ class QAData(Thing):
         if add_detections:
             try:
                 _ = self.sources 
+                raise NotImplementedError("Overplotting source detection functionality has been added yet") 
             except AttributeError:
                 self.logger.warning("Sources have not yet been extracted. " +\
                                     "Automatically calling `detect_sources` with default parameters, prior to plotting.")
                 self.detect_sources()
 
-        raise NotImplementedError("No image plotting functionality has been added yet")
+        fig = plt.figure()
+        plt.imshow(self.data, **kwargs)
+            
+        return fig
+
     
