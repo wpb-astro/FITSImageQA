@@ -26,6 +26,25 @@ __all__ = [
     'extract_sources'
 ]
 
+def log10(val: float | np.ndarray, fill_val: float = -99.0) -> float | np.ndarray:
+    """
+    Calculate log10, ignoring values that are less than or equal to zero.
+    
+    
+    Parameters
+    ----------
+    val : float or np.ndarray
+        Value(s) for which take logarithm.
+    fill_val : int, optional
+        Ignored value replacement, by default -99.
+
+    Returns
+    -------
+    _ : float or np.array
+        Base 10 logarithm of value(s). 
+    """
+    return np.log10(val, out=fill_val * np.ones_like(val), where=val > 0)
+
 
 def _byteswap(arr):
     """
@@ -197,8 +216,8 @@ def extract_sources(
 
     # If zero point given, calculate magnitudes.
     if zpt is not None:
-        cat['mag'] = zpt - 2.5 * utils.log10(cat['flux'], fill_val=-99)
-        cat['mag_auto'] = zpt - 2.5 * utils.log10(cat['flux_auto'], fill_val=-99)
+        cat['mag'] = zpt - 2.5 * log10(cat['flux'], fill_val=-99)
+        cat['mag_auto'] = zpt - 2.5 * log10(cat['flux_auto'], fill_val=-99)
         
     # Calculate aperture fluxes.
     for r_aper in flux_aper:
