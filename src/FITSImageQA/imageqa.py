@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from astropy.io import fits
 import logging
+import matplotlib.pyplot as plt
 
 # package imports
 # TODO: not sure how these should be organized...
@@ -27,8 +28,8 @@ except ImportError:
 
 all = []
 
-class Thing:
-    def __init__(self) -> None:
+class ImageQA:
+    def __init__(self, filename=None) -> None:
         """
 
         TODO:
@@ -39,18 +40,34 @@ class Thing:
         self.logger.setLevel(logging.DEBUG)
         # optional logger stuff: setLevel, setFormatter, handlers(?)
 
-    def is_corrupt_or_empty(self):
+        if filename is not None:
+            self.fn = filename
+            self.check_is_corrupt()
+            if not self.is_corrupt:
+                self.qadata = QAData(filename_or_data=self.fn)
+                self.qahdr = QAHeader(filename_or_hdr=self.fn)
+            else:
+                self.qadata = None
+                self.qahdr = None
+                raise Exception(f"FITS file {self.fn} is corrupt.")
+
+    def check_is_corrupt(self):
         """
-        check whether the FITS file is corrupt or empty
+        check whether the FITS file is corrupt
 
         TODO: fill in
         """
-        pass
+        try:
+            _ = fits.open(self.fn)
+            self.is_corrupt = False
+        except:
+            self.is_corrupt = True
 
-class QAHeader(Thing):
+class QAHeader(ImageQA):
     def __init__(self, filename_or_hdr: str | fits.hdu.hdulist.HDUList | fits.header.Header, 
                  expected_fields: list[str] = None, 
-                 expected_fields_dtype: dict = None
+                 expected_fields_dtype: dict = None, 
+                 qadata: QAData = None
                 ) -> None:
         """
 
@@ -63,14 +80,20 @@ class QAHeader(Thing):
             list of fields that must appear in the image header
         expected_fields_dtype : dict of key-value pairs (optional)
             keys = header names (str)
-            values = data types        
+            values = data types
+        qadata : QAData (optional)
+            initialize a QAData object for the data corresponding to the header
+            if passing str or HDUList to `filename_or_hdr`, will create QAData directly
+            otherwise, must explicitly pass a QAData object        
         """
         super().__init__()
         # parse the header, depending on what is passed
         if isinstance(filename_or_hdr, str):
             hdr = fits.getheader(filename_or_hdr)
+            qadata = QAData( fits.getdata(filename_or_hdr))
         elif isinstance(filename_or_hdr, fits.hdu.hdulist.HDUList):
             hdr = filename_or_hdr[0].header
+            qadata = QAData( filename_or_hdr[0].data)
         elif isinstance(filename_or_hdr, fits.header.Header):
             hdr = filename_or_hdr
         else:
@@ -82,6 +105,7 @@ class QAHeader(Thing):
         except TypeError:
             self.expected_fields = expected_fields
         self.expected_fields_dtype = expected_fields_dtype
+        self.qadata = qadata
 
     def fetch_header_info(self, column_name: str, suppress_error: bool = False):
         """ 
@@ -164,7 +188,7 @@ class QAHeader(Thing):
             raise TypeError at first instance of failure
         suppress_unknown : bool
             if True, do not break if header datatype cannot be checked 
-            (not in reference list)
+            (i.e., column exists in `self.header_fields` but is not a key in `expected_fields_dtype` list)
         overwrite_attribute : bool (default=False)
             reset the `expected_fields_dtype` attribute with the locally-passed list
         verbose : bool
@@ -182,7 +206,8 @@ class QAHeader(Thing):
         -----
         self.header_fields and keys(expected_fields_dtype) can be overlapping or subsets of one another
         """
-        # Force behavior
+        # Force behavior - if requesting to return a list of all columns that have incorrect datatypes,
+        # cannot also request to fail at the first sign of failure
         if return_incorrect_fields == exit_on_fail == True:
             raise Exception("Cannot set both `return_incorrect_fields` and `exit_on_fail` to be True")
         
@@ -241,9 +266,10 @@ class QAHeader(Thing):
             else:
                 return passed 
 
-class QAData(Thing):
+class QAData(ImageQA):
     def __init__(self, filename_or_data: str | fits.hdu.hdulist.HDUList | np.ndarray, 
-                 detection_config: dict = None
+                 detection_config: dict = None,
+                 qahdr: QAHeader = None
                 ) -> None:
         """
 
@@ -254,20 +280,27 @@ class QAData(Thing):
             can be a filename, or an hdu (result of fits.open), or fitsheader object (hdu[0].header)
         detection_config : dict (optional)
             dictionary of parameters to use in `detection.extract_sources`
+        qahdr : QAHeader (optional)
+            initialize a QAHeader object for the header corresponding to the data
+            if passing str or HDUList to `filename_or_data`, will create QAHeader directly
+            otherwise, must explicitly pass a QAHeader object   
         """
         super().__init__()
         # parse the data, depending on what is passed
         if isinstance(filename_or_data, str):
             data = fits.getdata(filename_or_data)
+            qahdr  = QAHeader(fits.getheader(filename_or_data))
         elif isinstance(filename_or_data, fits.hdu.hdulist.HDUList):
             data = filename_or_data[0].data
+            qahdr  = QAHeader(filename_or_data[0].header)
         elif isinstance(filename_or_data, np.ndarray):
             data = filename_or_data
         else:
             raise TypeError("filename_or_data is not the correct type.")
         self.data = data
         self.detection_config = detection_config
-
+        self.qahdr = qahdr  
+    
     def is_focus_good(self, max_focus_fwhm: float | int = 2.5): 
         """
         Determine whether a focus run is needed while observing,
@@ -295,7 +328,7 @@ class QAData(Thing):
             _ = self.sources
         except AttributeError:
             self.detect_sources()
-
+        
         # TODO: confirm that this median method is robust against nan/missing
         med_fwhm = np.median( self.sources.cat['fwhm'] )
         in_focus = med_fwhm <= max_focus_fwhm
@@ -339,27 +372,32 @@ class QAData(Thing):
             detection_config = kwargs
         else:
             detection_config.update(kwargs)
-        
+         
+        # Attempt to parse the zeropoint from the header (used for calculating magnitudes.)
+        #       loop through a list of possible zeropoint keywords 
+        # list of possible zeropoint keywords in the header
+        zp_keyword_list = ['ZP', 'ZPMAG', 'ZEROPNT'] 
+        zp = None
+        if isinstance(self.qahdr, QAHeader):
+            for zp_key in zp_keyword_list: 
+                try:
+                    zp = self.qahdr.fetch_header_info(zp_key, suppress_error=True)
+                except KeyError:
+                    pass
+                if zp is not None:
+                    break
+        detection_config['zpt'] = zp
+
         # update the class attribute
         if self.detection_config is not None:
             self.detection_config.update(detection_config)
         else:
             self.detection_config = detection_config
-        
-        # TODO: NOT YET IMPLEMENTED: Attempt to parse the zeropoint from the header (used for calculating magnitudes.)
-        #       loop through a list of possible zeropoint keywords 
-        # list of possible zeropoint keywords in the header
-        zp_keyword_list = ['ZP', 'ZPMAG', 'ZEROPNT'] 
-        zp = None
-        #while zp is None:
-        #    try:
-        #        zp = # read the value from the header
-        detection_config['zp'] = zp
 
         # run the source detection and store the result
         self.sources = detection.extract_sources(path_or_pixels=self.data, logger=self.logger, **self.detection_config)
     
-    def display_image(self, add_detections: bool = False, **kwargs):
+    def display_image(self, add_detections: bool = False, hdr: QAHeader = None, **kwargs):
         """ 
         Display the image
 
@@ -378,10 +416,15 @@ class QAData(Thing):
         if add_detections:
             try:
                 _ = self.sources 
+                raise NotImplementedError("Overplotting source detection functionality has been added yet") 
             except AttributeError:
                 self.logger.warning("Sources have not yet been extracted. " +\
                                     "Automatically calling `detect_sources` with default parameters, prior to plotting.")
                 self.detect_sources()
 
-        raise NotImplementedError("No image plotting functionality has been added yet")
+        fig = plt.figure()
+        plt.imshow(self.data, **kwargs)
+            
+        return fig
+
     
