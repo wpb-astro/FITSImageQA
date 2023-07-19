@@ -1,0 +1,14 @@
+# some of these may be default python packages, and need not be listed here
+
+# annotations
+# Path
+# dataclass
+# Sequence
+# utils
+# io
+# logging
+
+matplotlib
+sep
+numpy
+astropy

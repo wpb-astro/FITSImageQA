@@ -1,5 +1,5 @@
 # FITSImageQA
-Perform quality checks on FITS images
+Perform quality checks on FITS images. View the documentation on [Read the Docs](https://fitsimageqa.readthedocs.io/en/latest/).
 
 ### Install package in editable mode
 `pip install -e .`
